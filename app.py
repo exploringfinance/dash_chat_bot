@@ -66,17 +66,17 @@ def extract_text_from_pdf(contents):
 md_style = {'width': '80%', 'font-size':'14px'}
 md_initial = """
 Welcome to the ALT Analytics LLM demo. The application is built in Python Dash and is connected
-to the Anthropic Claude 2 model using AWS Bedrock. The objective of the app is to give a user interface
-to interact with the LLM without having to go through the AWS console. Furthermore, it gives
+to the Anthropic Claude 2 model using AWS Bedrock. The app objective is to provide a user interface
+for interacting with the LLM without having to go through the AWS console. Furthermore, it gives
 users the ability to upload PDF or TXT documents before asking their question. For example,
-you can upload a PDF document and then ask the LLM to summarize it for you ro check for grammar. 
+you can upload a PDF document and then ask the LLM to summarize it for you or check for grammar erros. 
 
 To enable the app, **you must have a code**. Reach out to 
 [tony@altanalyticsllc.com](mailto:tony@altanalyticsllc.com) to get the code or 
-else none of the features will work.The user has the ability to enable "Silly Mode" for the app. This 
-will usually generate false and funny answers. If the app
-is in "Silly Mode", you should not take seriously any of the output from the model. If you would like 
-to know how you can build a similar model on your own, you can follow the instructions laid out in 
+else none of the features will work. The user has the ability to enable "Silly Mode" for the app. This 
+will usually generate false and funny answers. If the app is in "Silly Mode", you should not take 
+seriously any of the output from the model. If you would like to know how you can build a similar 
+model on your own, you can follow the instructions laid out in 
 [this article]().
 """
 md_instructions = dcc.Markdown(children = md_initial, style = md_style, 
@@ -87,7 +87,8 @@ Use the buttons below to upload a TXT or PDF file that will be included in the i
 **You have to upload the files before making an initial prompt** or it will not work. If the text 
 is in Microsoft Word, then you will need to save/export the file as a .txt file before uploading. 
 If you have already made an initial request, then you will need to press "Reset" and start over 
-in order for your PDF/TXT files to be included. 
+in order for your PDF/TXT files to be included. The TXT file is fed first, followed by the PDF
+but to reduce the output size, neither will appear in the response below. 
 
 """
 md_upload_ins = dcc.Markdown(children = md_upload, style = md_style, 
@@ -103,6 +104,11 @@ This means, follow-up questions do not have to be as specific. *Enjoy and have f
 """
 md_prompt_ins = dcc.Markdown(children = md_prompt, style = md_style, 
                               dangerously_allow_html=True) 
+
+
+md_valid_code = dcc.Markdown(children = '*Please enter the valid code in the box above*', 
+                             style = md_style, dangerously_allow_html=True) 
+
 
 # Set application layout
 app.layout = html.Div([
@@ -132,7 +138,6 @@ app.layout = html.Div([
                         width=4),
              dbc.Col(dcc.Upload(id='upload-text',multiple=False,
                         children=dbc.Button('Upload txt', id='upload_txt_doc', color = 'info')),
-                        
                         width=4),
              dbc.Col(dbc.RadioItems(
              options=[
@@ -153,7 +158,7 @@ app.layout = html.Div([
      dbc.Spinner(html.Div(id='loading-output-chat'), color = "warning"),
      dbc.Row([dbc.Col(dbc.Input(id='question-input', placeholder = 'Enter your prompt here', type = 'text'), width = 8),
               dbc.Col(dbc.Button('Go', id = 'submit-button', color = 'success'), width = 1),
-              dbc.Col(dbc.Button('Reset', id = 'reset-button', color = 'warning'), width = 2)]),
+              dbc.Col(dbc.Button('Reset', id = 'reset-button', color = 'danger'), width = 2)]),
    html.Br(),
    html.Br(),
    
@@ -190,7 +195,7 @@ def upload_text_file(code, contents, filename):
      # Check for code
      if code != code_expected:
         print('No code')
-        return '', html.P('Please enter the valid code')
+        return '', md_valid_code
     
      if contents is not None:
         # Validate file type
@@ -216,7 +221,7 @@ def upload_pdf_file(code, contents, filename):
     # Check for App Code
     if code != code_expected:
       print('No code')
-      return '', html.P('Please enter the valid code')
+      return '', md_valid_code
     
     if contents is not None:
         # Check file type
@@ -256,7 +261,7 @@ def execute_model(n_clicks, r_clicks, input_value, existing_prompt, silly,
   # Check if application code was entered
   if code != code_expected:
     print('No code')
-    return "", "Please enter the proper code", "", "", None, None 
+    return "", md_valid_code, "", "", None, None 
   
   # Reset application
   if r_clicks is not None:
@@ -278,8 +283,8 @@ def execute_model(n_clicks, r_clicks, input_value, existing_prompt, silly,
     return "", "", "", "", None, None 
   # This builds the initial prompt that will start the chat chain
   elif n_clicks == 1:
-    claude_prompt = 'Human: ' + initial_prompt + '\n' + upload_txt_content + '\n' +\
-    upload_pdf_content + '\n' + input_value + '\nAssistant:'
+    claude_prompt = 'Human: ' + upload_txt_content + '\n' + upload_pdf_content + '\n' +\
+    initial_prompt + '\n' + input_value + '\nAssistant:'
   # This adds to the existing prompt
   else:
     claude_prompt = existing_prompt + 'Human:' + input_value + 'Assistant:'
@@ -300,10 +305,11 @@ def execute_model(n_clicks, r_clicks, input_value, existing_prompt, silly,
   contentType = 'application/json'
   response = bedrock.invoke_model(body = body, modelId = modelId, accept = accept, contentType = contentType)
   response_body = json.loads(response.get('body').read())
-  claude_prompt = claude_prompt + response_body.get('completion')
+  prompt_w_response = claude_prompt + response_body.get('completion')
+  print(prompt_w_response)
   
   # Format output for display in markdown
-  output_formatted = claude_prompt.replace('Human:', human)
+  output_formatted = prompt_w_response.replace('Human:', human)
   output_formatted = output_formatted.replace('Assistant:', assistant)
   output_formatted = output_formatted.replace(upload_txt_content, '')
   output_formatted = output_formatted.replace(upload_pdf_content, '')
@@ -311,7 +317,7 @@ def execute_model(n_clicks, r_clicks, input_value, existing_prompt, silly,
                          dangerously_allow_html=True) #'<b>bold</b> <u>underline</u>')
                          
   # Return formatted text and raw text
-  return "", md_text, claude_prompt, "", n_clicks, None
+  return "", md_text, prompt_w_response, "", n_clicks, None
 
 
 if __name__ == '__main__':
