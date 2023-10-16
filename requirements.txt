@@ -1,0 +1,4 @@
+dash
+boto3
+PyPDF2
+dash_bootstrap_components
