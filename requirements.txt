@@ -7,3 +7,4 @@ celery
 dash[celery]
 diskcache
 dash[diskcache]
+gunicorn
