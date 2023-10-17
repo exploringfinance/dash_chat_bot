@@ -19,6 +19,7 @@ import base64
 import io
 import os
 import PyPDF2
+from docx import Document
 
 
 # Set the AWS credentials file
@@ -61,6 +62,28 @@ def extract_text_from_pdf(contents):
         return "Error extracting text"
 
 
+def parse_contents(contents, filename, date):
+    content_type, content_string = contents.split(',')
+    decoded = base64.b64decode(content_string)
+    try:
+        if '.pdf' in filename:
+            text_string = extract_text_from_pdf(contents)
+        elif '.txt' in filename:
+            # Assume that the user uploaded an excel file
+            text_string = io.StringIO(decoded.decode('ISO-8859-1')).read()
+        elif '.docx' in filename:
+          doc = Document(io.BytesIO(decoded))
+          text = [paragraph.text for paragraph in doc.paragraphs]
+          text_string = '\n'.join(text)
+        else:
+          text_string = 'Wrong file type uploaded'
+          filename = 'Please upload either a PDF, txt, or docx file'
+          
+    except Exception as e:
+        print(e)
+        return ['There was an error processing this file.', 'Error with ' + filename]
+    return [text_string, filename]
+
 
 # Create text for the app in Markdown format
 md_style = {'width': '80%', 'font-size':'14px'}
@@ -68,27 +91,27 @@ md_initial = """
 Welcome to the ALT Analytics LLM demo. The application is built in Python Dash and is connected
 to the Anthropic Claude 2 model using AWS Bedrock. The app objective is to provide a user interface
 for interacting with the LLM without having to go through the AWS console. Furthermore, it gives
-users the ability to upload PDF or TXT documents before asking their question. For example,
-you can upload a PDF document and then ask the LLM to summarize it for you or check for grammar erros. 
+users the ability to upload PDF, Word Documents, or TXT files before asking their question. For example,
+you can upload several PDF documents and then ask the LLM to summarize them for you or check for 
+grammar erros. 
 
-To enable the app, **you must have a code**. Reach out to 
+To enable the app, **you must have the correct code**. Reach out to 
 [tony@altanalyticsllc.com](mailto:tony@altanalyticsllc.com) to get the code or 
-else none of the features will work. The user has the ability to enable "Silly Mode" for the app. This 
+else the app will not work. The user has the ability to enable "Silly Mode" for the app. This 
 will usually generate false and funny answers. If the app is in "Silly Mode", you should not take 
 seriously any of the output from the model. If you would like to know how you can build a similar 
 model on your own, you can follow the instructions laid out in 
-[this article]().
+[this article](https://www.altanalyticsllc.com/posts/2023-10-15-aws-llm-chatbot/).
 """
 md_instructions = dcc.Markdown(children = md_initial, style = md_style, 
                               dangerously_allow_html=True) 
                               
 md_upload = """
-Use the buttons below to upload a TXT or PDF file that will be included in the initial prompt. 
-**You have to upload the files before making an initial prompt** or it will not work. If the text 
-is in Microsoft Word, then you will need to save/export the file as a .txt file before uploading. 
+Use the box below to upload a TXT, DOCX, or PDF file that will be included in the initial prompt. 
+**You have to upload the files before making an initial prompt** or it will not work. 
 If you have already made an initial request, then you will need to press "Reset" and start over 
-in order for your PDF/TXT files to be included. The TXT file is fed first, followed by the PDF
-but to reduce the output size, neither will appear in the response below. 
+in order for your PDF/TXT/DOCX files to be included. To reduce the output size, 
+document text will not appear in the response below. 
 
 """
 md_upload_ins = dcc.Markdown(children = md_upload, style = md_style, 
@@ -96,10 +119,10 @@ md_upload_ins = dcc.Markdown(children = md_upload, style = md_style,
                               
 md_prompt = """
 When entering your prompt, be clear about what you are asking and what your response should look like.
-If asking the LLM to summarize or review a document. Upload the document and then enter the prompt: 
-"Can you summarie the text above" or "Are there and gramatical mistakes in the text above". Be sure to 
-reference the "Text above" because that is the order the text is entered. It's best to experiment. 
-If you continue asking without refreshing the page, the model will ingest all the correspondance. 
+If asking the LLM to summarize or review a document. Upload the document(s) and then enter the prompt: 
+"Can you summarie the document(s) above" or "Are there any gramatical mistakes in the document(s) above". 
+Be sure to reference the "Document(s) above" because the text is parsed and named as "documents". It's 
+best to experiment. The model has built in memory, so you continue asking without refreshing the page.
 This means, follow-up questions do not have to be as specific. *Enjoy and have fun*!
 """
 md_prompt_ins = dcc.Markdown(children = md_prompt, style = md_style, 
@@ -127,29 +150,42 @@ app.layout = html.Div([
     md_instructions,
     dbc.Row([dbc.Col(dbc.Input(id='code-input', placeholder = 'Enter the code to enable the app', 
                               type = 'text'),width = 4),
+             dbc.Col(width=1),
+             dbc.Col(dbc.RadioItems(
+             options=[
+                {"label": "Normal Mode", "value": 1},
+                {"label": "Silly Mode", "value": 2}],value=1,
+                id="silly-input",), width = 4)
              ]),
     html.Br(),
     
     # Upload document section
     md_upload_ins,
-    dbc.Row([dbc.Col(dcc.Upload(id='upload-pdf',multiple=False,
-                        children=dbc.Button('Upload PDF', id='upload_pdf_doc', color = 'info')),
-                        
-                        width=4),
-             dbc.Col(dcc.Upload(id='upload-text',multiple=False,
-                        children=dbc.Button('Upload txt', id='upload_txt_doc', color = 'info')),
-                        width=4),
-             dbc.Col(dbc.RadioItems(
-             options=[
-                {"label": "Normal Mode", "value": 1},
-                {"label": "Silly Mode", "value": 2}],value=1,
-                id="silly-input",), width = 4)]),
-    dbc.Row([dbc.Col(html.Div(id='upload-pdf-display'),width = 4),
-             dbc.Col(html.Div(id='upload-txt-display'),width = 4)]),
-
-    dcc.Store(id='upload-txt-content'),
-    dcc.Store(id='upload-pdf-content'),
-    
+    dbc.Row([dbc.Col(dcc.Upload(
+        id='upload-data',
+        children=html.Div([
+            'Drag and Drop or ',
+            html.A('Select Files')
+        ]),
+        style={
+            'width': '100%',
+            'height': '60px',
+            'lineHeight': '60px',
+            'borderWidth': '1px',
+            'borderStyle': 'dashed',
+            'borderRadius': '5px',
+            'textAlign': 'center',
+            'margin': '10px',
+            'color': '#158cba',  
+            'borderColor': '#158cba'  
+        },
+        # Allow multiple files to be uploaded
+        multiple=True
+    ), width = 6)
+             ]),
+    html.Div(id='upload-file-display'),
+    dcc.Store(id='upload-file-content'),
+    dcc.Store(id='upload-file-name'),
     # Section with the prompt
     html.Hr(),
     md_prompt_ins,
@@ -185,54 +221,46 @@ assistant = """
 """
 
 # Callback to read in text file
-@app.callback(Output('upload-txt-content', 'data'),
-              Output('upload-txt-display', 'children'),
+@app.callback(Output('upload-file-content', 'data'),
+              Output('upload-file-name', 'data'),
+              Output('upload-file-display', 'children'),
               Input('code-input','value'),
-              Input('upload-text', 'contents'),
-              State('upload-text', 'filename'))
-def upload_text_file(code, contents, filename):
-    
+              Input('upload-data', 'contents'),
+              State('upload-data', 'filename'),
+              State('upload-data', 'last_modified'),
+              State('upload-file-content', 'data'),
+              State('upload-file-name', 'data'),
+              State('submit-button', 'n_clicks'))
+def upload_files(code, list_of_contents, list_of_names, list_of_dates, cur_upload, cur_filnames, n_clicks):
+ 
      # Check for code
-     if code != code_expected:
-        print('No code')
-        return '', md_valid_code
+     if code is not None:
+        if code.lower() != code_expected:
+          print('No code')
+          return '', '', md_valid_code
+      
+     if code is None:
+        return '', '', md_valid_code
+      
+     if n_clicks is not None:
+        return '', '', html.P('Please reset before uploading new files.')
     
-     if contents is not None:
-        # Validate file type
-        if filename.lower().find('.txt') == -1:
-          return '', html.P('File was not a .txt file')
-        
-        # Read in data
-        content_type, content_string = contents.split(',')
-        decoded = base64.b64decode(content_string)
-        file_contents = io.StringIO(decoded.decode('ISO-8859-1')).read()
-        return file_contents, html.P('txt file: ' + filename + ' uploaded and received')
-     return '', html.P('No txt File uploaded')
+     if list_of_contents is not None:
+       string_build = cur_upload
+       name_string = cur_filnames
+       parsed_data = [
+            parse_contents(c, n, d) for c, n, d in
+            zip(list_of_contents, list_of_names, list_of_dates)]
+       for item in parsed_data:
+          string_build = 'The following text is from a doucment named ' + \
+                           item[1] + '\nThe document ends with >>>>>>>>' + \
+                           '\n' + string_build + '\n' + item[0] + '>>>>>>>>'
+          name_string = name_string + ' / ' + item[1]
+       # print(name_string)
+       # print(string_build)
+       return string_build, name_string, html.P('The following file(s) were uploaded: ' + name_string)
+     return '', '', html.P('No Files uploaded')
 
-
-# Read in PDF File
-@app.callback(Output('upload-pdf-content', 'data'),
-              Output('upload-pdf-display', 'children'),
-              Input('code-input','value'),
-              Input('upload-pdf', 'contents'),
-              State('upload-pdf', 'filename'))
-def upload_pdf_file(code, contents, filename):
-  
-    # Check for App Code
-    if code != code_expected:
-      print('No code')
-      return '', md_valid_code
-    
-    if contents is not None:
-        # Check file type
-        if filename.lower().find('.pdf') == -1:
-          return '', html.P('File was not a .pdf file')
-        
-        # Read in text from PDF
-        pdf_text = extract_text_from_pdf(contents)
-        # print(pdf_text)
-        return pdf_text, html.P('PDF file: ' + filename + ' uploaded and received')
-    return '', html.P('No PDF File uploaded')
 
 
 # Main callback that generates the model output
@@ -247,21 +275,21 @@ def upload_pdf_file(code, contents, filename):
               State('question-input', 'value'),
               State('prompt-store', 'data'),
               State('silly-input', "value"),
-              State('upload-txt-content', 'data'),
-              State('upload-pdf-content', 'data'),
+              State('upload-file-content', 'data'),
               State('code-input','value'),
               prevent_initial_call=True)
 def execute_model(n_clicks, r_clicks, input_value, existing_prompt, silly,
-                  upload_txt_content, upload_pdf_content, code):
+                  upload_file_content, code):
   
   # Print r_clicks and n_clicks
   print(n_clicks)
   print(r_clicks)
-  
   # Check if application code was entered
-  if code != code_expected:
-    print('No code')
-    return "", md_valid_code, "", "", None, None 
+     # Check for code
+  if code is not None:
+     if code.lower() != code_expected:
+        print('No code')
+        return "", md_valid_code, "", "", None, None 
   
   # Reset application
   if r_clicks is not None:
@@ -278,12 +306,15 @@ def execute_model(n_clicks, r_clicks, input_value, existing_prompt, silly,
   session = boto3.Session()
   bedrock = session.client(service_name = 'bedrock-runtime', region_name = 'us-east-1')
   
+  if input_value is None: 
+    input_value = ''
+  
   # Determine which prompt to create
   if n_clicks is None:
     return "", "", "", "", None, None 
   # This builds the initial prompt that will start the chat chain
   elif n_clicks == 1:
-    claude_prompt = 'Human: ' + upload_txt_content + '\n' + upload_pdf_content + '\n' +\
+    claude_prompt = 'Human: ' + upload_file_content + '\n' +\
     initial_prompt + '\n' + input_value + '\nAssistant:'
   # This adds to the existing prompt
   else:
@@ -298,7 +329,7 @@ def execute_model(n_clicks, r_clicks, input_value, existing_prompt, silly,
     "temperature": 0.1,
     "top_p": 0.9,
   })
-  
+  # print(claude_prompt)
   # Create API request to the model
   modelId = 'anthropic.claude-v2'
   accept = 'application/json'
@@ -306,13 +337,12 @@ def execute_model(n_clicks, r_clicks, input_value, existing_prompt, silly,
   response = bedrock.invoke_model(body = body, modelId = modelId, accept = accept, contentType = contentType)
   response_body = json.loads(response.get('body').read())
   prompt_w_response = claude_prompt + response_body.get('completion')
-  print(prompt_w_response)
+  # print(prompt_w_response)
   
   # Format output for display in markdown
   output_formatted = prompt_w_response.replace('Human:', human)
   output_formatted = output_formatted.replace('Assistant:', assistant)
-  output_formatted = output_formatted.replace(upload_txt_content, '')
-  output_formatted = output_formatted.replace(upload_pdf_content, '')
+  output_formatted = output_formatted.replace(upload_file_content, '')
   md_text = dcc.Markdown(children = output_formatted, style = md_style, 
                          dangerously_allow_html=True) #'<b>bold</b> <u>underline</u>')
                          
