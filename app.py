@@ -29,7 +29,7 @@ from docx import Document
 #######
 
 ### For Heroku, use this section and hard code the variable
-code_expected = 'abcde'
+code_expected = 'panda'
 
 ### For Heroku Follow the instructions here: 
 ### https://medium.com/@mcmanus_data_works/deploying-a-plotly-dash-app-on-heroku-e659756283b0
@@ -40,10 +40,11 @@ code_expected = 'abcde'
 #> heroku config:set AWS_SECRET_ACCESS_KEY=your_secret_access_key
 #> heroku config:set AWS_REGION=your_aws_region
 
-### It's also best to use REDIS for long callbacks - this cost $3 a month
+### It's also best practice to use REDIS for long callbacks - this cost $3 a month
+### NOTE: I COULD NOT GET CELERY WORKING, THE APP JUST HUNG, SO I DID NOT USE IT
 #> heroku addons:create heroku-redis:mini -a your-app-name
 ### Destroy with teh following command
-#> heroku addons:destroy REDIS -a example-app
+#> heroku addons:destroy REDIS -a your-app-name
  
 ###  Deploy
 #> git push heroku
@@ -53,7 +54,7 @@ code_expected = 'abcde'
 ### Comment this section out to use Heroku
 #######
 
-# Set the AWS credentials file
+Set the AWS credentials file
 credentials_file_path = 'assets/credentials'
 os.environ['AWS_SHARED_CREDENTIALS_FILE'] = credentials_file_path
 
@@ -81,6 +82,7 @@ else:
     import diskcache
     cache = diskcache.Cache("./cache")
     background_callback_manager = DiskcacheManager(cache)
+    
     
 # Create app with dbc theme
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.LUMEN],
@@ -287,10 +289,11 @@ def upload_files(code, list_of_contents, list_of_names, list_of_dates, cur_uploa
      # Check for code
      if code is not None:
         if code.lower() != code_expected:
-          print('No code')
+          print('Wrong code')
           return '', '', md_valid_code
       
      if code is None:
+        print('No Code')
         return '', '', md_valid_code
       
      if n_clicks is not None:
@@ -315,21 +318,22 @@ def upload_files(code, list_of_contents, list_of_names, list_of_dates, cur_uploa
 
 
 # Main callback that generates the model output
-@app.long_callback(output=[Output('loading-output-chat', 'children'),
-                  Output('question-display', 'children'),
-                  Output('prompt-store', 'data'),
-                  Output('question-input', 'value'),
-                  Output('submit-button', 'n_clicks'),
-                  Output('reset-button', 'n_clicks')],
-                  inputs=[Input('submit-button', 'n_clicks'),
-                  Input('reset-button', 'n_clicks'),
-                  State('question-input', 'value'),
-                  State('prompt-store', 'data'),
-                  State('silly-input', "value"),
-                  State('upload-file-content', 'data'),
-                  State('code-input','value')],
-                  running=[(Output("submit-button", "disabled"), True, False)],
-                  prevent_initial_call=True)
+@app.callback(output=[Output('loading-output-chat', 'children'),
+              Output('question-display', 'children'),
+              Output('prompt-store', 'data'),
+              Output('question-input', 'value'),
+              Output('submit-button', 'n_clicks'),
+              Output('reset-button', 'n_clicks')],
+              inputs=[Input('submit-button', 'n_clicks'),
+              Input('reset-button', 'n_clicks'),
+              State('question-input', 'value'),
+              State('prompt-store', 'data'),
+              State('silly-input', "value"),
+              State('upload-file-content', 'data'),
+              State('code-input','value')],
+              running=[(Output("submit-button", "disabled"), True, False)],
+              background=True,
+              prevent_initial_call=True)
 def execute_model(n_clicks, r_clicks, input_value, existing_prompt, silly,
                   upload_file_content, code):
   
@@ -338,10 +342,16 @@ def execute_model(n_clicks, r_clicks, input_value, existing_prompt, silly,
   print(r_clicks)
   # Check if application code was entered
      # Check for code
+     
   if code is not None:
-     if code.lower() != code_expected:
-        print('No code')
-        return "", md_valid_code, "", "", None, None 
+    if code.lower() != code_expected:
+      print('Wrong code')
+      return "", md_valid_code, "", "", None, None 
+      
+  if code is None:
+      print('No Code')
+      return "", md_valid_code, "", "", None, None 
+
   
   # Reset application
   if r_clicks is not None:
