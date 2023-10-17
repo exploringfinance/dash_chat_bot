@@ -54,7 +54,7 @@ code_expected = 'panda'
 ### Comment this section out to use Heroku
 #######
 
-Set the AWS credentials file
+### Set the AWS credentials file
 credentials_file_path = 'assets/credentials'
 os.environ['AWS_SHARED_CREDENTIALS_FILE'] = credentials_file_path
 
