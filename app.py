@@ -29,7 +29,7 @@ from docx import Document
 #######
 
 ### For Heroku, use this section and hard code the variable
-code_expected = 'panda'
+code_expected = 'demo,alsodemo'
 
 ### For Heroku Follow the instructions here: 
 ### https://medium.com/@mcmanus_data_works/deploying-a-plotly-dash-app-on-heroku-e659756283b0
@@ -54,7 +54,7 @@ code_expected = 'panda'
 ### Comment this section out to use Heroku
 #######
 
-### Set the AWS credentials file
+Set the AWS credentials file
 credentials_file_path = 'assets/credentials'
 os.environ['AWS_SHARED_CREDENTIALS_FILE'] = credentials_file_path
 
@@ -261,18 +261,6 @@ app.layout = html.Div([
 ])])
 
 
-# This is used to replace the raw text output to make it more readable
-human = """  
-
-<u>*You*</u>:  
-  
-"""
-assistant = """  
-
-*[Claude2](https://www.anthropic.com/index/claude-2):*  
-
-"""
-
 # Callback to read in text file
 @app.callback(Output('upload-file-content', 'data'),
               Output('upload-file-name', 'data'),
@@ -285,10 +273,13 @@ assistant = """
               State('upload-file-name', 'data'),
               State('submit-button', 'n_clicks'))
 def upload_files(code, list_of_contents, list_of_names, list_of_dates, cur_upload, cur_filnames, n_clicks):
- 
+
+     
      # Check for code
+     codes = code_expected.split(",") 
+     print(code)
      if code is not None:
-        if code.lower() != code_expected:
+        if code.lower() not in codes:
           print('Wrong code')
           return '', '', md_valid_code
       
@@ -343,8 +334,10 @@ def execute_model(n_clicks, r_clicks, input_value, existing_prompt, silly,
   # Check if application code was entered
      # Check for code
      
+  # Check for code
+  codes = code_expected.split(",") 
   if code is not None:
-    if code.lower() != code_expected:
+    if code.lower() not in codes:
       print('Wrong code')
       return "", md_valid_code, "", "", None, None 
       
@@ -393,13 +386,32 @@ def execute_model(n_clicks, r_clicks, input_value, existing_prompt, silly,
   })
   # print(claude_prompt)
   # Create API request to the model
-  modelId = 'anthropic.claude-v2'
+  modelId = "anthropic.claude-instant-v1"
+  model_link = 'https://www.anthropic.com/index/releasing-claude-instant-1-2'
+  
+  if code == codes[1]:
+    modelId = 'anthropic.claude-v2'
+    model_link = 'https://www.anthropic.com/index/claude-2'
+  
+  print(modelId)
   accept = 'application/json'
   contentType = 'application/json'
   response = bedrock.invoke_model(body = body, modelId = modelId, accept = accept, contentType = contentType)
   response_body = json.loads(response.get('body').read())
   prompt_w_response = claude_prompt + response_body.get('completion')
   # print(prompt_w_response)
+  
+  # This is used to replace the raw text output to make it more readable
+  human = """  
+  
+  <u>*You*</u>:  
+    
+  """
+  assistant = """  
+  
+  *[Claude](""" + model_link + """):*  
+  
+  """
   
   # Format output for display in markdown
   output_formatted = prompt_w_response.replace('Human:', human)
