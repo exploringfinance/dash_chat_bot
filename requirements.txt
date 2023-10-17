@@ -4,4 +4,6 @@ python-docx
 PyPDF2
 dash_bootstrap_components
 celery
+dash[celery]
 diskcache
+dash[diskcache]
