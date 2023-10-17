@@ -3,15 +3,14 @@
 # Website: www.altanalyticsllc.com
 # Date: 2023-10-14
 # File: app.py (dash_chat_bot)
-# Description: Chat bot that allows a user to upload PDF/TXT files
-# Notes: 
+# Description: Chat bot that allows a user to upload PDF/TXT/DOCX files
+# Notes: The firss section deals with deploying code to either Posit or Heroku
 ###########################
 
 # pip install -r requirements.txt
-
 # Load libraries
 import dash
-from dash import html, dcc, callback, Output, Input, State
+from dash import Dash, DiskcacheManager, CeleryManager, Input, Output, State, html, callback, dcc
 import dash_bootstrap_components as dbc
 import boto3
 import json
@@ -21,26 +20,78 @@ import os
 import PyPDF2
 from docx import Document
 
+#######
+# Use this section depending if deployed on Heroku or Posit
+#######
+
+#######
+### For Heroku, use this section
+#######
+
+### For Heroku, use this section and hard code the variable
+code_expected = 'abcde'
+
+### For Heroku Follow the instructions here: 
+### https://medium.com/@mcmanus_data_works/deploying-a-plotly-dash-app-on-heroku-e659756283b0
+
+### You also need to use the commands below to set the AWS heroku variables
+### DO NOT UNCOMMENT THIS PART - Run one time on command line
+#> heroku config:set AWS_ACCESS_KEY_ID=your_access_key_id
+#> heroku config:set AWS_SECRET_ACCESS_KEY=your_secret_access_key
+#> heroku config:set AWS_REGION=your_aws_region
+
+### It's also best to use REDIS for long callbacks - this cost $3 a month
+#> heroku addons:create heroku-redis:mini -a your-app-name
+### Destroy with teh following command
+#> heroku addons:destroy REDIS -a example-app
+ 
+###  Deploy
+#> git push heroku
+
+#######
+### For posit cloud, use this section
+### Comment this section out to use Heroku
+#######
 
 # Set the AWS credentials file
 credentials_file_path = 'assets/credentials'
 os.environ['AWS_SHARED_CREDENTIALS_FILE'] = credentials_file_path
 
-# Create app with dbc theme
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.LUMEN]) # SANDSTONE
+user_code = 'assets/user_code.txt'
+with open(user_code, 'r') as file:
+    user_code = file.read()
+code_expected = user_code.strip()
 
+
+#######
+### End Posit vs Heroku section 
+#######
+
+### This is used to handle long callbacks
+if 'REDIS_URL' in os.environ:
+    # Use Redis & Celery if REDIS_URL set as an env variable
+    print('Celery')
+    from celery import Celery
+    celery_app = Celery(__name__, broker=os.environ['REDIS_URL'], backend=os.environ['REDIS_URL'])
+    background_callback_manager = CeleryManager(celery_app)
+
+else:
+    # Diskcache for non-production apps when developing locally
+    print('Diskcache')
+    import diskcache
+    cache = diskcache.Cache("./cache")
+    background_callback_manager = DiskcacheManager(cache)
+    
+# Create app with dbc theme
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.LUMEN],
+                background_callback_manager=background_callback_manager) # SANDSTONE
+server = app.server
 
 # Read in the initial/silly prompt in assets folder
 silly_prompt = 'assets/silly_prompt.txt'
 with open(silly_prompt, 'r') as file:
     silly_prompt = file.read()
 
-
-# Set the user code based on file so not embedded
-user_code = 'assets/user_code.txt'
-with open(user_code, 'r') as file:
-    user_code = file.read()
-code_expected = user_code.strip()
 
 # Function to read in PDF file
 def extract_text_from_pdf(contents):
@@ -120,7 +171,7 @@ md_upload_ins = dcc.Markdown(children = md_upload, style = md_style,
 md_prompt = """
 When entering your prompt, be clear about what you are asking and what your response should look like.
 If asking the LLM to summarize or review a document. Upload the document(s) and then enter the prompt: 
-"Can you summarie the document(s) above" or "Are there any gramatical mistakes in the document(s) above". 
+"Can you summarize the document(s) above" or "Are there any gramatical mistakes in the document(s) above". 
 Be sure to reference the "Document(s) above" because the text is parsed and named as "documents". It's 
 best to experiment. The model has built in memory, so you continue asking without refreshing the page.
 This means, follow-up questions do not have to be as specific. *Enjoy and have fun*!
@@ -264,20 +315,21 @@ def upload_files(code, list_of_contents, list_of_names, list_of_dates, cur_uploa
 
 
 # Main callback that generates the model output
-@app.callback(Output('loading-output-chat', 'children'),
-              Output('question-display', 'children'),
-              Output('prompt-store', 'data'),
-              Output('question-input', 'value'),
-              Output('submit-button', 'n_clicks'),
-              Output('reset-button', 'n_clicks'),
-              Input('submit-button', 'n_clicks'),
-              Input('reset-button', 'n_clicks'),
-              State('question-input', 'value'),
-              State('prompt-store', 'data'),
-              State('silly-input', "value"),
-              State('upload-file-content', 'data'),
-              State('code-input','value'),
-              prevent_initial_call=True)
+@app.long_callback(output=[Output('loading-output-chat', 'children'),
+                  Output('question-display', 'children'),
+                  Output('prompt-store', 'data'),
+                  Output('question-input', 'value'),
+                  Output('submit-button', 'n_clicks'),
+                  Output('reset-button', 'n_clicks')],
+                  inputs=[Input('submit-button', 'n_clicks'),
+                  Input('reset-button', 'n_clicks'),
+                  State('question-input', 'value'),
+                  State('prompt-store', 'data'),
+                  State('silly-input', "value"),
+                  State('upload-file-content', 'data'),
+                  State('code-input','value')],
+                  running=[(Output("submit-button", "disabled"), True, False)],
+                  prevent_initial_call=True)
 def execute_model(n_clicks, r_clicks, input_value, existing_prompt, silly,
                   upload_file_content, code):
   

@@ -3,3 +3,5 @@ boto3
 python-docx
 PyPDF2
 dash_bootstrap_components
+celery
+diskcache
