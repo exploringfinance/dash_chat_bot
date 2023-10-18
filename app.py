@@ -144,7 +144,7 @@ md_initial = """
 Welcome to the ALT Analytics LLM demo. The application is built in Python Dash and is connected
 to the Anthropic Claude 2 model using AWS Bedrock. The app objective is to show how someone 
 can create and deploy their own private and stand-alone LLM Chat Bot as shown in
-[this article](https://www.altanalyticsllc.com/posts/2023-10-15-aws-llm-chatbot/). This chat bot is 
+[this article](https://www.altanalyticsllc.com/posts/2023-10-18-private-llm-chatbot/). This chat bot is 
 not private for demonstration purposes, but the instructions show how to deploy in a private 
 environment. *Inputs and outputs are not stored by this app or the model.*
 
