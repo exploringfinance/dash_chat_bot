@@ -54,7 +54,7 @@ code_expected = 'demo,alsodemo'
 ### Comment this section out to use Heroku
 #######
 
-Set the AWS credentials file
+### Set the AWS credentials file
 credentials_file_path = 'assets/credentials'
 os.environ['AWS_SHARED_CREDENTIALS_FILE'] = credentials_file_path
 
@@ -142,13 +142,13 @@ def parse_contents(contents, filename, date):
 md_style = {'width': '80%', 'font-size':'14px'}
 md_initial = """
 Welcome to the ALT Analytics LLM demo. The application is built in Python Dash and is connected
-to the Anthropic Claude 2 model using AWS Bedrock. The app objective is to provide a user interface
-for interacting with the LLM without having to go through the AWS console. Furthermore, it gives
+to the Anthropic Claude 2 model using AWS Bedrock. The app objective is to show how an organization 
+can create an LLM Chat Bot that is not externally facing. Furthermore, it gives
 users the ability to upload PDF, Word Documents, or TXT files before asking their question. For example,
 you can upload several PDF documents and then ask the LLM to summarize them for you or check for 
-grammar erros. 
+grammar erros. *Inputs and outputs are not stored by the app or the model.*
 
-To enable the app, **you must have the correct code**. Reach out to 
+To enable this app, **you must have the correct code**. Reach out to 
 [tony@altanalyticsllc.com](mailto:tony@altanalyticsllc.com) to get the code or 
 else the app will not work. The user has the ability to enable "Silly Mode" for the app. This 
 will usually generate false and funny answers. If the app is in "Silly Mode", you should not take 
@@ -160,7 +160,8 @@ md_instructions = dcc.Markdown(children = md_initial, style = md_style,
                               dangerously_allow_html=True) 
                               
 md_upload = """
-Use the box below to upload a TXT, DOCX, or PDF file that will be included in the initial prompt. 
+Use the box below to upload TXT, DOCX, or PDF files that will be included in the initial prompt. 
+You can upload several at one time.
 **You have to upload the files before making an initial prompt** or it will not work. 
 If you have already made an initial request, then you will need to press "Reset" and start over 
 in order for your PDF/TXT/DOCX files to be included. To reduce the output size, 
@@ -172,8 +173,9 @@ md_upload_ins = dcc.Markdown(children = md_upload, style = md_style,
                               
 md_prompt = """
 When entering your prompt, be clear about what you are asking and what your response should look like.
+Here are [some tips](https://www.promptingguide.ai/introduction/tips) for writing good LLM prompts. 
 If asking the LLM to summarize or review a document. Upload the document(s) and then enter the prompt: 
-"Can you summarize the document(s) above" or "Are there any gramatical mistakes in the document(s) above". 
+"Can you summarize the document(s) above?" or "Are there any gramatical mistakes in the document(s) above?". 
 Be sure to reference the "Document(s) above" because the text is parsed and named as "documents". It's 
 best to experiment. The model has built in memory, so you continue asking without refreshing the page.
 This means, follow-up questions do not have to be as specific. *Enjoy and have fun*!
