@@ -142,30 +142,29 @@ def parse_contents(contents, filename, date):
 md_style = {'width': '80%', 'font-size':'14px'}
 md_initial = """
 Welcome to the ALT Analytics LLM demo. The application is built in Python Dash and is connected
-to the Anthropic Claude 2 model using AWS Bedrock. The app objective is to show how an organization 
-can create an LLM Chat Bot that is not externally facing. Furthermore, it gives
-users the ability to upload PDF, Word Documents, or TXT files before asking their question. For example,
-you can upload several PDF documents and then ask the LLM to summarize them for you or check for 
-grammar erros. *Inputs and outputs are not stored by the app or the model.*
+to the Anthropic Claude 2 model using AWS Bedrock. The app objective is to show how someone 
+can create and deploy their own private and stand-alone LLM Chat Bot as shown in
+[this article](https://www.altanalyticsllc.com/posts/2023-10-15-aws-llm-chatbot/). This chat bot is 
+not private for demonstration purposes, but the instructions show how to deploy in a private 
+environment. *Inputs and outputs are not stored by this app or the model.*
+
+This app also gives users the ability to upload PDF, Word Documents, or TXT files before asking 
+their question. For example, you can upload several PDF documents and then ask the LLM to summarize 
+them for you or check for grammar erros. 
 
 To enable this app, **you must have the correct code**. Reach out to 
 [tony@altanalyticsllc.com](mailto:tony@altanalyticsllc.com) to get the code or 
 else the app will not work. The user has the ability to enable "Silly Mode" for the app. This 
-will usually generate false and funny answers. If the app is in "Silly Mode", you should not take 
-seriously any of the output from the model. If you would like to know how you can build a similar 
-model on your own, you can follow the instructions laid out in 
-[this article](https://www.altanalyticsllc.com/posts/2023-10-15-aws-llm-chatbot/).
+will usually generate false and funny answers.
 """
 md_instructions = dcc.Markdown(children = md_initial, style = md_style, 
                               dangerously_allow_html=True) 
                               
 md_upload = """
 Use the box below to upload TXT, DOCX, or PDF files that will be included in the initial prompt. 
-You can upload several at one time.
-**You have to upload the files before making an initial prompt** or it will not work. 
-If you have already made an initial request, then you will need to press "Reset" and start over 
-in order for your PDF/TXT/DOCX files to be included. To reduce the output size, 
-document text will not appear in the response below. 
+You can upload several at one time. **You have to upload
+the files before making an initial request** or they will not be included in your prompt. 
+If you have already made an initial request, then you will need to press "Reset" and start over.
 
 """
 md_upload_ins = dcc.Markdown(children = md_upload, style = md_style, 
@@ -176,8 +175,7 @@ When entering your prompt, be clear about what you are asking and what your resp
 Here are [some tips](https://www.promptingguide.ai/introduction/tips) for writing good LLM prompts. 
 If asking the LLM to summarize or review a document. Upload the document(s) and then enter the prompt: 
 "Can you summarize the document(s) above?" or "Are there any gramatical mistakes in the document(s) above?". 
-Be sure to reference the "Document(s) above" because the text is parsed and named as "documents". It's 
-best to experiment. The model has built in memory, so you continue asking without refreshing the page.
+It's best to experiment. The model has built in memory, so you continue asking without refreshing the page.
 This means, follow-up questions do not have to be as specific. *Enjoy and have fun*!
 """
 md_prompt_ins = dcc.Markdown(children = md_prompt, style = md_style, 
